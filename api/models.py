@@ -127,3 +127,26 @@ class ErrorResponse(BaseModel):
     error: str = Field(..., description="Error message")
     error_code: Optional[str] = Field(None, description="Error code")
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Error timestamp")
+# Add these to your existing models.py file
+
+# Audio Processing Models
+class AudioProcessingRequest(BaseModel):
+    user_id: str = Field(..., description="User ID for the audio request")
+    use_search: bool = Field(default=False, description="Enable web search if needed")
+    use_computer_control: bool = Field(default=False, description="Enable computer control if needed")
+    device_id: Optional[str] = Field(None, description="Device ID for computer control")
+    context_limit: int = Field(default=5, description="Number of context messages to include")
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="LLM temperature")
+
+# Add these to your existing models.py file at the end
+
+# Simplified Audio Processing Models - Conversation + Computer Control Only
+class AudioProcessingResponse(BaseModel):
+    success: bool = Field(..., description="Request success status")
+    output_natural_response: str = Field(..., description="Alice's conversational response")
+    output_ducky_script: str = Field(default="", description="Generated ducky script for computer control")
+    output_appliances_response: Dict[str, str] = Field(default_factory=dict, description="Empty dict - not used")
+    transcription: str = Field(..., description="Transcribed text from audio")
+    conversation_id: Optional[str] = Field(None, description="Conversation ID for tracking")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Processing metadata")
+    processing_time: float = Field(..., description="Total processing time in seconds")
