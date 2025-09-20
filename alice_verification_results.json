@@ -1,0 +1,149 @@
+{
+  "overall_success": true,
+  "total_tests": 9,
+  "passed_tests": 9,
+  "failed_tests": 0,
+  "success_rate": 100.0,
+  "duration": 25.381587,
+  "detailed_results": {
+    "Environment Variables": {
+      "success": true,
+      "details": "All 10 required variables present",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:36.317273"
+    },
+    "Import: config": {
+      "success": true,
+      "details": "",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:36.329344"
+    },
+    "Import: LLM Core": {
+      "success": true,
+      "details": "",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:37.068382"
+    },
+    "Import: Database Manager": {
+      "success": true,
+      "details": "",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:50.018140"
+    },
+    "Import: Context Analyzer": {
+      "success": true,
+      "details": "",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:50.018140"
+    },
+    "Import: Template Manager": {
+      "success": true,
+      "details": "",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:50.018140"
+    },
+    "Import: Computer Control": {
+      "success": true,
+      "details": "",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:50.042699"
+    },
+    "Import: Search Integration": {
+      "success": true,
+      "details": "",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:51.017828"
+    },
+    "Import: API Models": {
+      "success": true,
+      "details": "",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:51.052184"
+    },
+    "Import: FastAPI Core": {
+      "success": true,
+      "details": "",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:51.343871"
+    },
+    "Import: Required Libraries": {
+      "success": true,
+      "details": "",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:51.343871"
+    },
+    "PostgreSQL Connection": {
+      "success": true,
+      "details": "Connected to 100.89.24.38:5433",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:51.457225"
+    },
+    "Redis Connection": {
+      "success": true,
+      "details": "Connected to 100.89.24.38:6379",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:51.497769"
+    },
+    "LLM Model Info": {
+      "success": true,
+      "details": "Model: meta-llama/llama-4-maverick-17b-128e-instruct, Context: 128,000 tokens",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:51.498885"
+    },
+    "LLM Response Test": {
+      "success": true,
+      "details": "Response received: Alice verification test successful",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:51.879450"
+    },
+    "Search System": {
+      "success": true,
+      "details": "Found 2 results (multiplier=5, required=2)",
+      "error": "",
+      "timestamp": "2025-09-20T08:51:54.527466"
+    },
+    "Database Manager": {
+      "success": true,
+      "details": "Stored conversation f8db7fbc-a477-4cdb-af22-98c277e24875, retrieved 1 messages",
+      "error": "",
+      "timestamp": "2025-09-20T08:52:00.669530"
+    },
+    "Context Analyzer": {
+      "success": true,
+      "details": "Intent: computer_control, Confidence: 0.90",
+      "error": "",
+      "timestamp": "2025-09-20T08:52:00.980314"
+    },
+    "Template Manager": {
+      "success": true,
+      "details": "Initialized successfully",
+      "error": "",
+      "timestamp": "2025-09-20T08:52:00.980916"
+    },
+    "Computer Control": {
+      "success": true,
+      "details": "Initialized successfully",
+      "error": "",
+      "timestamp": "2025-09-20T08:52:01.604022"
+    },
+    "API Models": {
+      "success": true,
+      "details": "Pydantic models working",
+      "error": "",
+      "timestamp": "2025-09-20T08:52:01.611070"
+    },
+    "API Routers": {
+      "success": true,
+      "details": "FastAPI routers loaded",
+      "error": "",
+      "timestamp": "2025-09-20T08:52:01.611070"
+    },
+    "FastAPI Server": {
+      "success": true,
+      "details": "Main application imported successfully",
+      "error": "",
+      "timestamp": "2025-09-20T08:52:01.694903"
+    }
+  },
+  "ready_for_launch": true
+}

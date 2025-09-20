@@ -1,306 +1,305 @@
-﻿"""
-Main Application - Enhanced Intelligent Search & Scrape System
-FastAPI web server + command line demo
-"""
-
+﻿import logging
+import uvicorn
 import asyncio
-import sys
-
-# Fix Windows asyncio event loop policy for Playwright
-if sys.platform.startswith('win'):
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
-# Your existing imports continue below...
-import asyncio
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from datetime import datetime
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from utils.api import search_and_scrape, test_complete_workflow, get_system_info
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
-# FastAPI app for web API
-app = FastAPI(
-    title="Enhanced Search & Scrape API",
-    description="Intelligent web scraping with dynamic thread management",
-    version="2.0"
+# Import all API routers
+from api.chat import router as chat_router
+from api.search import router as search_router
+from api.computer_control import router as computer_router
+from api.templates import router as templates_router
+from api.models import HealthResponse
+
+# Import core components
+from core.database_manager import get_db_manager
+from core.context_analyzer import get_context_analyzer
+from core.template_manager import get_template_manager
+from computer_control.control_logic import get_computer_control
+from llm import get_model_info
+from config import ALICE_SYSTEM_PROMPT
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('alice.log'),
+        logging.StreamHandler()
+    ]
 )
 
-# Enhanced CORS middleware for cross-origin support
+logger = logging.getLogger(__name__)
+
+# Global startup time
+startup_time = datetime.now()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager"""
+    
+    # Startup
+    logger.info("🚀 Alice AI Assistant starting up...")
+    
+    try:
+        # Initialize core components
+        logger.info("🧠 Initializing AI brain components...")
+        db = get_db_manager()
+        context_analyzer = get_context_analyzer()
+        template_manager = get_template_manager()
+        computer_control = get_computer_control()
+        
+        logger.info("✅ All components initialized successfully")
+        
+        # Test LLM connection
+        model_info = get_model_info()
+        logger.info(f"🤖 {model_info['model']} ready with {model_info['capabilities']['parameters']}")
+        
+        logger.info("🎉 Alice AI Assistant is ready!")
+        
+    except Exception as e:
+        logger.error(f"❌ Startup failed: {e}")
+        raise
+    
+    yield
+    
+    # Shutdown
+    logger.info("🛑 Alice AI Assistant shutting down...")
+    
+    try:
+        # Close database connections
+        db = get_db_manager()
+        db.close_connections()
+        logger.info("✅ Database connections closed")
+        
+    except Exception as e:
+        logger.error(f"❌ Shutdown error: {e}")
+    
+    logger.info("👋 Alice AI Assistant stopped")
+
+# Create FastAPI app
+app = FastAPI(
+    title="Alice AI Assistant",
+    description="""
+    🤖 **Alice AI Assistant** - Advanced Multimodal AI powered by Llama 4 Maverick
+    
+    ## Features
+    - 🧠 **Advanced Reasoning**: Multi-step problem solving with 128K context
+    - 🔍 **Intelligent Search**: Real-time web search integration
+    - 🖥️ **Computer Control**: Remote computer automation with visual feedback
+    - 🖼️ **Multimodal**: Native text and image understanding
+    - 📋 **Learning**: Template creation and workflow automation
+    - 🌍 **Multi-Language**: Support for 12 languages
+    
+    ## Powered By
+    - **Llama 4 Maverick** (17B MoE with 128 experts)
+    - **Groq** for ultra-fast inference
+    - **PostgreSQL + pgvector** for intelligent memory
+    - **Redis** for high-speed caching
+    - **MQTT** for real-time device communication
+    """,
+    version="2.0.0",
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "*",  # Allow all origins for development
-        "http://localhost:3000",  # React dev server
-        "http://localhost:8080",  # Vue dev server  
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8080",
-        "http://100.89.24.38:8888",  # Local SearXNG instance
-    ],
+    allow_origins=["*"],  # Configure appropriately for production
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=[
-        "*", 
-        "Content-Type", 
-        "Authorization", 
-        "Access-Control-Allow-Headers",
-        "Access-Control-Allow-Origin",
-        "Access-Control-Allow-Methods"
-    ],
-    expose_headers=["*"]
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Request models
-class SearchRequest(BaseModel):
-    query: str
-    required_results: int = 5
-    url_multiplier: int = 10
-
-class TestRequest(BaseModel):
-    test_query: str = "Python programming tutorial"
-
-# API Routes
-@app.get("/")
-async def root():
-    """API status and information"""
-    system_info = get_system_info()
-    return {
-        "status": "Enhanced Search & Scrape API v2.0",
-        "message": "Dynamic thread shifting scraper ready!",
-        "capabilities": system_info['capabilities'],
-        "hardware": system_info['hardware']
-    }
-
-@app.post("/search")
-async def api_search(request: SearchRequest):
-    """
-    Main search and scrape endpoint
+# Request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = datetime.now()
     
-    Uses complete workflow:
-    1. Local SearXNG → DuckDuckGo → Public SearXNG fallback
-    2. LLM ranking with Groq Ollama 70B
-    3. Dynamic parallel scraping with thread shifting
-    4. BeautifulSoup → Playwright fallback
-    """
+    # Process request
+    response = await call_next(request)
+    
+    # Log request details
+    process_time = (datetime.now() - start_time).total_seconds()
+    logger.info(
+        f"🌐 {request.method} {request.url.path} - "
+        f"Status: {response.status_code} - "
+        f"Time: {process_time:.3f}s"
+    )
+    
+    return response
+
+# Error handling
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "error": exc.detail,
+            "status_code": exc.status_code,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    logger.error(f"❌ Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": "Alice encountered an internal error. Please try again.",
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
+# Include API routers
+app.include_router(chat_router, prefix="/api/v1")
+app.include_router(search_router, prefix="/api/v1")
+app.include_router(computer_router, prefix="/api/v1")
+app.include_router(templates_router, prefix="/api/v1")
+
+# Root endpoint
+@app.get("/", response_model=HealthResponse)
+async def root():
+    """Alice AI Assistant - Root endpoint"""
+    
+    uptime = (datetime.now() - startup_time).total_seconds()
+    model_info = get_model_info()
+    
+    return HealthResponse(
+        success=True,
+        service="Alice AI Assistant",
+        version="2.0.0",
+        model=model_info["model"],
+        capabilities=[
+            "Advanced Reasoning (Llama 4 Maverick)",
+            "Multimodal Understanding",
+            "Web Search Integration", 
+            "Computer Control Automation",
+            "Template Learning System",
+            "128K Context Memory",
+            "12 Language Support",
+            "Ultra-Fast Groq Inference"
+        ],
+        uptime=uptime
+    )
+
+# Health check endpoint
+@app.get("/health", response_model=HealthResponse)
+async def health_check():
+    """Comprehensive system health check"""
+    
     try:
-        results = await search_and_scrape(
-            query=request.query,
-            required_results=request.required_results,
-            url_multiplier=request.url_multiplier
+        # Test core components
+        db = get_db_manager()
+        
+        # Test database connectivity
+        db.redis_conn.ping()
+        
+        # Test LLM connectivity
+        model_info = get_model_info()
+        
+        uptime = (datetime.now() - startup_time).total_seconds()
+        
+        return HealthResponse(
+            success=True,
+            service="Alice AI Assistant",
+            version="2.0.0", 
+            model=model_info["model"],
+            capabilities=list(model_info["capabilities"].values()),
+            uptime=uptime
         )
         
-        return {
-            "status": "success",
-            "query": request.query,
-            "results_count": len(results),
-            "results": results
-        }
-        
     except Exception as e:
-        return {
-            "status": "error",
-            "error": str(e),
-            "query": request.query
-        }
+        logger.error(f"❌ Health check failed: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"System health check failed: {str(e)}"
+        )
 
-@app.post("/test")
-async def api_test(request: TestRequest):
-    """Test the complete workflow"""
-    try:
-        test_result = await test_complete_workflow(request.test_query)
-        return test_result
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": str(e)
-        }
-
-@app.get("/system")
-async def api_system():
-    """Get system information and status"""
-    return get_system_info()
-
-@app.get("/health")
-async def health_check():
-    """Simple health check"""
-    return {"status": "healthy", "service": "Enhanced Search & Scrape API"}
-
-async def demo_enhanced_system():
-    """
-    Demonstrate the complete enhanced system following your structure:
+# API Info endpoint
+@app.get("/api/info")
+async def api_info():
+    """Get comprehensive API information"""
     
-    1. Local SearXNG URLs (from alice_ai_agent/.env) → DuckDuckGo fallback
-    2. URL multiplier (gets 5x or 10x more URLs than requested)
-    3. LLM ranking using Groq Cloud Ollama 70B
-    4. Parallel scraping with hardware monitoring  
-    5. BeautifulSoup → Playwright fallback
-    6. Intelligent error recovery and thread management
-    """
+    model_info = get_model_info()
     
-    print("🌟 Enhanced Intelligent Search & Scrape System")
-    print("=" * 60)
-    
-    # Show system capabilities
-    print("🔧 System Information:")
-    system_info = get_system_info()
-    print(f"   CPU Cores: {system_info['hardware']['cpu_cores']}")
-    print(f"   Available Memory: {system_info['hardware']['memory_available_gb']} GB")
-    print(f"   Local SearXNG: {system_info['configuration']['local_searxng_url']}")
-    print(f"   LLM Model: {system_info['configuration']['llm_model']}")
-    
-    # Demo searches with different parameters
-    demo_queries = [
-        {
-            'query': 'machine learning tutorial for beginners',
-            'required_results': 3,
-            'url_multiplier': 10,
-            'description': 'Educational content search'
+    return {
+        "success": True,
+        "alice_info": {
+            "version": "2.0.0",
+            "description": "Advanced Multimodal AI Assistant",
+            "model": model_info["model"],
+            "capabilities": model_info["capabilities"],
+            "performance": model_info["performance"]
         },
-        {
-            'query': 'latest AI news 2024',
-            'required_results': 2,
-            'url_multiplier': 5,
-            'description': 'News search with lower multiplier'
+        "endpoints": {
+            "chat": "/api/v1/chat/",
+            "multimodal": "/api/v1/chat/multimodal",
+            "search": "/api/v1/search/",
+            "computer_control": "/api/v1/computer/execute",
+            "screenshot": "/api/v1/computer/screenshot",
+            "templates": "/api/v1/templates/",
+            "devices": "/api/v1/computer/devices"
+        },
+        "features": {
+            "reasoning": "Advanced multi-step problem solving",
+            "multimodal": "Native text and image understanding",
+            "search": "Real-time web search with DuckDuckGo",
+            "automation": "Computer control with visual feedback",
+            "learning": "Template creation and workflow automation",
+            "memory": "128K context window with persistent learning",
+            "languages": "12 supported languages",
+            "inference": "Ultra-fast with Groq acceleration"
         }
-    ]
-    
-    for demo in demo_queries:
-        print(f"\n{'='*60}")
-        print(f"📝 Demo: {demo['description']}")
-        print(f"🔍 Query: '{demo['query']}'")
-        print(f"🎯 Target: {demo['required_results']} results")
-        print(f"📊 Multiplier: {demo['url_multiplier']}x")
-        print("-" * 60)
-        
-        try:
-            # Run enhanced search and scrape
-            results = await search_and_scrape(
-                query=demo['query'],
-                required_results=demo['required_results'],
-                url_multiplier=demo['url_multiplier']
-            )
-            
-            # Display results
-            if results:
-                print(f"\n🎉 Successfully retrieved {len(results)} results:")
-                for i, result in enumerate(results, 1):
-                    print(f"\n   📄 Result {i}:")
-                    print(f"      Title: {result.get('title', 'No title')}")
-                    print(f"      URL: {result.get('url', '')}")
-                    print(f"      Method: {result.get('method', 'Unknown')}")
-                    print(f"      Quality Score: {result.get('quality_score', 0)}/100")
-                    print(f"      Content Length: {len(result.get('content', '').split())} words")
-                    print(f"      LLM Relevance: {result.get('relevance_score', 'N/A')}")
-                    
-                    # Show content preview
-                    content = result.get('content', '')
-                    if content:
-                        preview = content[:200] + "..." if len(content) > 200 else content
-                        print(f"      Preview: {preview}")
-            else:
-                print("❌ No results retrieved")
-                
-        except Exception as e:
-            print(f"💥 Demo failed: {e}")
+    }
 
-async def run_system_test():
-    """
-    Run comprehensive system test
-    """
-    print(f"\n{'='*60}")
-    print("🧪 Running System Test")
-    print("-" * 60)
+# WebSocket endpoint for real-time chat (optional)
+@app.websocket("/ws/chat")
+async def websocket_chat(websocket):
+    """Real-time chat via WebSocket"""
     
-    # Test the complete workflow
-    test_result = await test_complete_workflow("Python web scraping guide")
+    await websocket.accept()
+    logger.info("🔌 WebSocket chat connection established")
     
-    if test_result['status'] == 'success':
-        print("✅ System Test PASSED")
-    else:
-        print("❌ System Test FAILED")
-    
-    return test_result
-
-def interactive_mode():
-    """
-    Interactive mode for manual testing
-    """
-    print(f"\n{'='*60}")
-    print("🎮 Interactive Mode")
-    print("Type your search query (or 'quit' to exit)")
-    print("-" * 60)
-    
-    while True:
-        try:
-            query = input("\n🔍 Enter search query: ").strip()
-            
-            if query.lower() in ['quit', 'exit', 'q']:
-                print("👋 Goodbye!")
-                break
-            
-            if not query:
-                print("⚠️ Please enter a valid query")
-                continue
-            
-            # Get user preferences
-            try:
-                required_results = int(input("📊 How many results do you want? (default 3): ") or "3")
-                url_multiplier = int(input("🔢 URL multiplier (5 or 10, default 10): ") or "10")
-                
-                if url_multiplier not in [5, 10]:
-                    print("⚠️ Using default multiplier of 10")
-                    url_multiplier = 10
-                    
-            except ValueError:
-                print("⚠️ Using default values: 3 results, 10x multiplier")
-                required_results = 3
-                url_multiplier = 10
-            
-            # Run search
-            print(f"\n🚀 Searching for: '{query}'...")
-            results = asyncio.run(search_and_scrape(query, required_results, url_multiplier))
-            
-            if results:
-                print(f"\n✅ Found {len(results)} results!")
-                for i, result in enumerate(results, 1):
-                    print(f"\n📄 Result {i}: {result.get('title', 'No title')}")
-                    print(f"   URL: {result.get('url', '')}")
-                    print(f"   Quality: {result.get('quality_score', 0)}/100")
-                    print(f"   Words: {len(result.get('content', '').split())}")
-            else:
-                print("❌ No results found")
-                
-        except KeyboardInterrupt:
-            print("\n👋 Goodbye!")
-            break
-        except Exception as e:
-            print(f"💥 Error: {e}")
-
-async def main():
-    """
-    Main function - orchestrates the entire system
-    """
     try:
-        print("🚀 Starting Enhanced Intelligent Search & Scrape System")
-        
-        # Run demonstrations
-        await demo_enhanced_system()
-        
-        # Run system test
-        test_result = await run_system_test()
-        
-        # Interactive mode
-        interactive_mode()
-        
-    except KeyboardInterrupt:
-        print("\n👋 System shutdown requested")
+        while True:
+            # Receive message
+            data = await websocket.receive_text()
+            message_data = json.loads(data)
+            
+            # Process with Alice (simplified)
+            response = {
+                "success": True,
+                "response": f"Alice received: {message_data.get('message', '')}",
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Send response
+            await websocket.send_text(json.dumps(response))
+            
     except Exception as e:
-        print(f"💥 System error: {e}")
-        raise
+        logger.error(f"❌ WebSocket error: {e}")
+    finally:
+        logger.info("🔌 WebSocket chat connection closed")
 
-# Command Line Demo (when run directly with python main.py)
 if __name__ == "__main__":
-    print("🚀 Running Enhanced Search & Scrape Demo")
-    print("💡 For API server, use: uvicorn main:app --host 0.0.0.0 --port 8000")
-    print("="*60)
+    logger.info("🚀 Starting Alice AI Assistant server...")
     
-    # Run the main application
-    asyncio.run(main())
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=False,  # Set to True for development
+        log_level="info",
+        access_log=True,
+        loop="asyncio"
+    )
