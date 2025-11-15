@@ -93,11 +93,19 @@ async def shutdown_crawl4ai():
     async with _crawler_lock:
         if _global_crawler is not None:
             try:
-                # Crawl4AI doesn't need explicit shutdown for HTTP-only mode
+                # Close the crawler's internal session if it exists
+                if hasattr(_global_crawler, 'crawler_strategy'):
+                    strategy = _global_crawler.crawler_strategy
+                    if hasattr(strategy, 'session') and strategy.session:
+                        await strategy.session.close()
+                        # Give aiohttp time to close all connections
+                        await asyncio.sleep(0.25)
+                
                 _global_crawler = None
                 print("🧹 Crawl4AI shut down cleanly")
             except Exception as e:
                 print(f"⚠️ Crawl4AI shutdown warning: {e}")
+                _global_crawler = None
 
 def should_use_crawl4ai(url, content_length=0, content_sample=""):
     """
